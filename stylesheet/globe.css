@@ -1,0 +1,73 @@
+
+body {
+    background: #FFF;
+}
+
+svg {
+    /*position: relative;*/
+    /*top: 250px;*/
+    /*left: 250px;*/
+}
+
+.notebook {
+    margin: auto;
+    width: 80%;
+    border: 1px solid darkgrey;
+
+    padding-top: 20px;
+    margin-top: 20px;
+}
+
+.container {
+
+}
+
+.right {
+    width: 20%;
+    float: right;
+}
+
+.left {
+    float: none; /* not needed, just for clarification */
+    /* the next props are meant to keep this block independent from the other floated one */
+    width: 70%;
+    overflow: scroll;
+    overflow: hidden;
+}​​
+
+.stroke {
+    fill: none;
+    stroke: #000;
+    stroke-width: 3px;
+}
+
+.fill {
+    fill: #fcfcfa;
+}
+
+.conflict {
+
+}
+
+.graticule {
+    fill: none;
+    stroke: #777;
+    stroke-width: .5px;
+    stroke-opacity: .5;
+}
+
+.land {
+    fill: #222;
+}
+
+.boundary {
+    fill: none;
+    stroke: #fff;
+    stroke-width: .5px;
+}
+
+#year-drag-bar {
+    position: relative;
+    top: 1550px;
+    left: 250px;
+}
