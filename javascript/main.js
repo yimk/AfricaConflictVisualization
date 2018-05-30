@@ -1,83 +1,115 @@
-var width = 1500,
-    height = 800;
-
 var dataCache;
 var dataCacheYear = [];
 var dataCacheCity = [];
 var dataCacheCountry = [];
 var dataCacheEventType = [];
 var dataCacheActor = [];
-var currentCompareAttribute = 'year';
 
-var projection = d3.geo.kavrayskiy7()
-    .scale(200)
-    .center([20,-0])
-    .translate([width / 2, height / 2])
-    .precision(.1);
+
+var width = 962,
+    rotated = 90,
+    height = 502;
+
+//countries which have states, needed to toggle visibility
+//for USA/ etc. either show countries or states, not both
+var usa, canada;
+var states; //track states
+//track where mouse was clicked
+var initX;
+//track scale only rotate when s === 1
+var s = 1;
+var mouseClicked = false;
+
+
+var projection = d3.geo.mercator()
+    .scale(153)
+    .translate([width/2,height/1.5])
+    .rotate([rotated,0,0]); //center on USA because 'murica
+
+var zoom = d3.behavior.zoom()
+    .scaleExtent([1, 20])
+    .on("zoom", zoomed);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    //track where user clicked down
+    .on("mousedown", function() {
+        d3.event.preventDefault();
+        //only if scale === 1
+        if(s !== 1) return;
+        initX = d3.mouse(this)[0];
+        mouseClicked = true;
+    })
+    .on("mouseup", function() {
+        if(s !== 1) return;
+        rotated = rotated + ((d3.mouse(this)[0] - initX) * 360 / (s * width));
+        mouseClicked = false;
+    })
+    .call(zoom);
+
+
+function rotateMap(endX) {
+    projection.rotate([rotated + (endX - initX) * 360 / (s * width),0,0])
+    g.selectAll('path')       // re-project path data
+        .attr('d', path);
+}
+//for tooltip
+var offsetL = document.getElementById('map').offsetLeft-200;
+var offsetT = document.getElementById('map').offsetTop;
 
 var path = d3.geo.path()
     .projection(projection);
 
-var graticule = d3.geo.graticule();
+var tooltip = d3.select("#map")
+    .append("div")
+    .attr("class", "tooltip hidden");
 
-var svgGlobe = d3.select("#globe").append("svg")
-    .attr("width", width)
-    .attr("height", height);
+//need this for correct panning
+var g = svg.append("g");
 
-// draw globe
-loadAndDrawGlobe();
+//det json data and draw it
+d3.json("combined2.json", function(error, world) {
+    if(error) return console.error(error);
+
+    //countries
+    g.append("g")
+        .attr("class", "boundary")
+        .selectAll("boundary")
+        .data(topojson.feature(world, world.objects.countries).features)
+        .enter().append("path")
+        .attr("name", function(d) {return d.properties.name;})
+        .attr("id", function(d) { return d.id;})
+        // .on('click', selected)
+        .on("mousemove", showTooltip)
+        .on("mouseout",  function(d,i) {
+            tooltip.classed("hidden", true);
+        })
+        .attr("d", path);
+
+    usa = d3.select('#USA');
+    canada = d3.select('#CAN');
+
+    //states
+    g.append("g")
+        .attr("class", "boundary state hidden")
+        .selectAll("boundary")
+        .data(topojson.feature(world, world.objects.states).features)
+        .enter().append("path")
+        .attr("name", function(d) { return d.properties.name;})
+        .attr("id", function(d) { return d.id;})
+        .on("mousemove", showTooltip)
+        .on("mouseout",  function(d,i) {
+            tooltip.classed("hidden", true);
+        })
+        .attr("d", path);
+
+    states = d3.selectAll('.state');
+});
 
 // load conflict city
 loadConflictDataset();
 drawConflict("year")
-
-d3.select(self.frameElement).style("height", height + "px");
-
-$('.globe-checkbox').click(function(){
-
-    var type = document.getElementById('attibute-to-compare-dropdown').innerHTML.split("Attribute To Compare - ")[1]
-    drawConflict(type)
-});
-
-function loadAndDrawGlobe(){
-
-    svgGlobe.append("defs").append("path")
-        .datum({type: "Sphere"})
-        .attr("id", "sphere")
-        .attr("d", path);
-
-    svgGlobe.append("use")
-        .attr("class", "stroke")
-        .attr("xlink:href", "#sphere");
-
-    svgGlobe.append("use")
-        .attr("class", "fill")
-        .attr("xlink:href", "#sphere");
-
-    svgGlobe.append("path")
-        .datum(graticule)
-        .attr("class", "graticule")
-        .attr("d", path);
-
-    d3.json("world-110m.v1.json", function(error, world) {
-        if (error) throw error;
-
-        var countries = topojson.feature(world, world.objects.countries).features,
-            neighbors = topojson.neighbors(world.objects.countries.geometries);
-
-        svgGlobe.selectAll(".country")
-            .data(countries)
-            .enter().insert("path", ".graticule")
-            .attr("class", "country")
-            .attr("d", path)
-            .style("fill", "#EEEEEE"/*function(d, i) { return color(d.color = d3.max(neighbors[i], function(n) {return countries[n].color;}) + 1 | 0); }*/);
-
-        svgGlobe.insert("path", ".graticule")
-            .datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
-            .attr("class", "boundary")
-            .attr("d", path);
-    });
-}
 
 function loadConflictDataset() {
 
@@ -155,7 +187,7 @@ function loadConflictDataset() {
 function drawConflict(type) {
 
     // remove all conflict dots
-    svgGlobe.selectAll(".conflict-point").remove();
+    svg.selectAll(".conflict-point").remove();
 
     // get all year selections
     var selectedYear = dataCacheYear.filter(function (x, i, a) {
@@ -210,7 +242,7 @@ function drawConflict(type) {
             break;
     }
 
-    svgGlobe.selectAll(".conflict")
+    g.selectAll(".conflict")
         .data(dataCache.filter(function(x, i, a) {
             return selectedYear.indexOf(x["YEAR"]) > -1 &&
                 selectedCity.indexOf(x["LOCATION"]) > -1 &&
@@ -229,6 +261,7 @@ function drawConflict(type) {
         .attr("class", "conflict-point")
         .attr("r", 1)
         .attr("d", path)
+        .style("cursor", "pointer")
         .style("fill", function (d) {
 
             var c;
@@ -244,7 +277,23 @@ function drawConflict(type) {
                 c =  color[array.indexOf(d["EVENT_TYPE"])]
             }
             return "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")";
+        })
+        .on({
+            "click":  function(d) {
+                document.getElementById('id01').style.display='block';
+                document.getElementById('modal-content').innerHTML = "<p>Actor1: " + d["ACTOR1"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>Actor2: " + d["ACTOR2"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>Admin1: " + d["ADMIN1"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>Admin2: " + d["ADMIN2"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>All Actor 1: " + d["ALLY_ACTOR_1"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>All Actor 2: " + d["ALLY_ACTOR_2"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>Country: " + d["COUNTRY"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>Event Date: " + d["EVENT_DATE"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>Event Type: " + d["EVENT_TYPE"] + "</p>";
+                document.getElementById('modal-content').innerHTML = document.getElementById('modal-content').innerHTML + "<p>Notes: " + d["NOTES"] + "</p>";
+            }
         });
+
 
     d3.select(".conflict")
         .data(array)
@@ -265,6 +314,160 @@ function drawConflict(type) {
             var index = array.indexOf(d)
             return "rgb(" + color[index][0] + "," + color[index][1] + "," + color[index][2] + ")";
         });
+}
+
+function drawGraph(type) {
+
+    // remove all conflict dots
+    svg.selectAll(".conflict-graph").remove();
+
+    // get all year selections
+    var selectedYear = dataCacheYear.filter(function (x, i, a) {
+        return document.getElementById("YEAR"+x).selected;
+    });
+
+    var selectedCity = dataCacheCity.filter(function (x, i, a) {
+        return document.getElementById("CITY"+x).selected;
+    });
+
+    var selectedCountry = dataCacheCountry.filter(function (x, i, a) {
+        return document.getElementById("COUNTRY"+x).selected;
+    });
+
+    var selectedActor = dataCacheActor.filter(function (x, i, a) {
+        return document.getElementById("ACTOR"+x).selected;
+    });
+
+    var selectedEvent = dataCacheEventType.filter(function (x, i, a) {
+        return document.getElementById("EVENT"+x).selected;
+    });
+
+    // get the color
+    var colors;
+    var array;
+    var data;
+    var histogramData = [];
+
+    var selectedData = dataCache.filter(function(x, i, a) {
+        return selectedYear.indexOf(x["YEAR"]) > -1 &&
+            selectedCity.indexOf(x["LOCATION"]) > -1 &&
+            selectedCountry.indexOf(x["COUNTRY"]) > -1 &&
+            (selectedActor.indexOf(x["ACTOR1"]) > -1 || selectedActor.indexOf(x["ACTOR2"]) > -1) &&
+            selectedEvent.indexOf(x["EVENT_TYPE"]) > -1
+    });
+
+    switch(type) {
+
+        case 'year':
+            //
+            // colors = randomColors(selectedYear.length);
+            // array = selectedYear;
+
+            // histogram of location(city) against number of time
+            var data = {};
+            for (var i = 0; i < selectedData.length; i++) {
+                data[selectedData[i]["LOCATION"]] = 1 + (data[selectedData[i]] || 0);
+            }
+
+            for (var key in data) {
+                histogramData.push([data[key], key]);
+            }
+            colors = randomColors(histogramData.length)
+            draw();
+
+            break;
+        case 'country':
+
+            colors = randomColors(selectedCountry.length);
+            array = selectedCountry;
+            break;
+        case 'city':
+
+            colors = randomColors(selectedCity.length);
+            array = selectedCity;
+            break;
+        case 'actor':
+
+            colors = randomColors(selectedActor.length);
+            array = selectedActor;
+            break;
+        case 'event':
+
+            colors = randomColors(selectedEvent.length);
+            array = selectedEvent;
+            break;
+    }
+
+    var canvas, ctx;
+    var barWidth;
+    var linesToDraw;
+    var id;
+    var textBuffer = 20;
+    var block = 30;
+    var margin = 10;
+
+    function draw() {
+        canvas = document.getElementById('histogram');
+        ctx = canvas.getContext('2d');
+        barWidth = (canvas.width / data.length) - margin;
+
+        drawHistogram();
+    }
+
+    function drawHistogram() {
+        cancelAnimationFrame(id);
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        drawAxisLabels();
+        linesToDraw = block * 12;
+
+        id = requestAnimationFrame(drawBars);
+    }
+
+    function drawBars() {
+        ctx.save();
+
+        ctx.translate(20, canvas.height-20);
+
+        for (var j=0; j<histogramData.length; j++) {
+            var currentLine = 360 - linesToDraw;
+            ctx.fillStyle = colors[j];
+            if (block*histogramData[j][0] >= currentLine)
+                ctx.fillRect(barWidth*j + margin*j,0,barWidth,-currentLine);
+        }
+
+        linesToDraw--;
+
+        if (linesToDraw > 0) {
+            id = requestAnimationFrame(drawBars);
+        }
+
+        ctx.restore();
+    }
+
+    function drawAxisLabels() {
+        ctx.save();
+
+        ctx.translate(20, canvas.height-20);
+
+        for (var i=0; i<histogramData.length; i++) {
+            ctx.fillStyle = colors[i];
+            ctx.fillText(histogramData[i][1], barWidth*i + margin*i + 5, 15);
+        }
+
+        for (var j=0; j<=12; j++) {
+            ctx.fillStyle = 'black';
+            ctx.fillText(j, -textBuffer, -j * block);
+        }
+
+        ctx.restore();
+    }
+}
+
+function redrawConflict(){
+
+    var type = document.getElementById('attibute-to-compare-dropdown').innerHTML.split("Attribute To Compare - ")[1];
+    type = type.split("\n")[0];
+    drawConflict(type.toLowerCase());
 }
 
 function randomColors(total)
@@ -355,3 +558,60 @@ function randomColors(total)
     }
     return r;
 }
+
+function showTooltip(d) {
+    label = d.properties.name;
+    var mouse = d3.mouse(svg.node())
+        .map( function(d) { return parseInt(d); } );
+    tooltip.classed("hidden", false)
+        .attr("style", "left:"+(mouse[0]+offsetL)+"px;top:"+(mouse[1]+offsetT)+"px")
+        .html(label);
+}
+
+function zoomed() {
+    var t = d3.event.translate;
+    s = d3.event.scale;
+    var h = 0;
+
+    t[0] = Math.min(
+        (width/height)  * (s - 1),
+        Math.max( width * (1 - s), t[0] )
+    );
+
+    t[1] = Math.min(
+        h * (s - 1) + h * s,
+        Math.max(height  * (1 - s) - h * s, t[1])
+    );
+
+    zoom.translate(t);
+    if(s === 1 && mouseClicked) {
+        rotateMap(d3.mouse(this)[0])
+        return;
+    }
+
+    g.attr("transform", "translate(" + t + ")scale(" + s + ")");
+
+    //adjust the stroke width based on zoom level
+    d3.selectAll(".boundary")
+        .style("stroke-width", 1 / s);
+
+    //toggle state/USA visability
+    if(s > 1.5) {
+        states
+            .classed('hidden', false);
+        usa
+            .classed('hidden', true);
+        canada
+            .classed('hidden', true);
+    } else {
+        states
+            .classed('hidden', true);
+        usa
+            .classed('hidden', false);
+        canada
+            .classed('hidden', false);
+    }
+}
+/*
+ Modal
+ */

@@ -1,73 +1,52 @@
 
 body {
-    background: #FFF;
+    background-color: white;
 }
 
 svg {
-    /*position: relative;*/
-    /*top: 250px;*/
-    /*left: 250px;*/
+    border: 1px solid black;
+    background-color: white;
 }
 
-.notebook {
-    margin: auto;
-    width: 80%;
-    border: 1px solid darkgrey;
-
-    padding-top: 20px;
-    margin-top: 20px;
-}
-
-.container {
-
-}
-
-.right {
-    width: 20%;
-    float: right;
-}
-
-.left {
-    float: none; /* not needed, just for clarification */
-    /* the next props are meant to keep this block independent from the other floated one */
-    width: 70%;
-    overflow: scroll;
-    overflow: hidden;
-}​​
-
-.stroke {
-    fill: none;
-    stroke: #000;
-    stroke-width: 3px;
-}
-
-.fill {
-    fill: #fcfcfa;
-}
-
-.conflict {
-
-}
-
-.graticule {
-    fill: none;
-    stroke: #777;
-    stroke-width: .5px;
-    stroke-opacity: .5;
-}
-
-.land {
-    fill: #222;
+.selected {
+    fill: red;
 }
 
 .boundary {
-    fill: none;
-    stroke: #fff;
-    stroke-width: .5px;
+    fill: #DEB887;
+    stroke: black;
+    stroke-width: 1px;
 }
 
-#year-drag-bar {
-    position: relative;
-    top: 1550px;
-    left: 250px;
+.hidden {
+    display: none;
 }
+
+div.tooltip {
+    color: #222;
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0px 0px 2px 0px #a6a6a6;
+    padding: .2em;
+    text-shadow: #f5f5f5 0 1px 0;
+    opacity: 0.9;
+    position: absolute;
+}
+
+#map {
+    margin: auto;
+    width: 80%;
+    /*border: 1px solid darkgrey;*/
+
+}
+
+.notebook {
+    position: absolute;
+    top: 0;
+}
+
+#controller {
+    position: fixed;
+    margin-left: 1000px;
+}
+
